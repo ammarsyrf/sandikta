@@ -207,4 +207,57 @@ class UserController extends Controller
         
         return back()->with('success', $msg);
     }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate(['file' => 'required|file|mimes:csv,txt|max:5120']);
+        $file = $request->file('file');
+        
+        $handle = fopen($file->getPathname(), 'r');
+        $firstLine = fgets($handle);
+        rewind($handle);
+        $delimiter = (strpos($firstLine, ';') !== false) ? ';' : ',';
+        
+        if (strpos($firstLine, "\xEF\xBB\xBF") === 0) fseek($handle, 3);
+
+        $header = fgetcsv($handle, 0, $delimiter);
+        $deleted = 0; 
+        $errors = []; 
+        $lineNumber = 1;
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+                $lineNumber++;
+                if (empty(array_filter($row))) continue;
+                
+                $nis = trim($row[0]);
+                if (empty($nis)) continue;
+
+                // Pastikan hanya menghapus user dengan role 'user'
+                $user = User::where('nis', $nis)->where('role', 'user')->first();
+                if ($user) {
+                    $user->delete();
+                    $deleted++;
+                } else {
+                    $errors[] = "Baris {$lineNumber}: NIS {$nis} tidak ditemukan";
+                }
+            }
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            fclose($handle);
+            return back()->with('error', "Gagal menghapus data: " . $e->getMessage());
+        }
+        
+        fclose($handle);
+        ActivityLog::log('bulk_delete_users', "Hapus massal {$deleted} user melalui CSV", null, null, 'danger');
+        
+        $msg = "Berhasil menghapus {$deleted} user secara massal.";
+        if (!empty($errors)) {
+            $msg .= ' Beberapa NIS tidak ditemukan: ' . implode(', ', array_slice($errors, 0, 3));
+        }
+        
+        return back()->with('success', $msg);
+    }
 }

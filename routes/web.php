@@ -59,6 +59,7 @@ Route::middleware(['auth', 'check.active', 'auto.logout'])->group(function () {
             Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
             Route::get('/users/template', [UserController::class, 'template'])->name('users.template');
             Route::post('/users/import', [UserController::class, 'import'])->name('users.import');
+            Route::post('/users/bulk-delete', [UserController::class, 'bulkDelete'])->name('users.bulk-delete');
 
             // eBook management
             Route::get('/ebooks', [EbookController::class, 'adminIndex'])->name('ebooks.index');

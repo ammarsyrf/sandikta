@@ -13,6 +13,10 @@
         <button class="btn btn-outline-modern flex-grow-1 flex-sm-grow-0" data-bs-toggle="modal" data-bs-target="#importModal">
             <i class="bi bi-upload me-1"></i>Import CSV
         </button>
+        <!-- Bulk Delete -->
+        <button class="btn btn-outline-danger flex-grow-1 flex-sm-grow-0" style="border-radius:12px;font-weight:600" data-bs-toggle="modal" data-bs-target="#bulkDeleteModal">
+            <i class="bi bi-trash me-1"></i>Hapus Massal
+        </button>
         <a href="{{ route('admin.users.create') }}" class="btn btn-primary-modern flex-grow-1 flex-sm-grow-0">
             <i class="bi bi-plus-lg me-1"></i>Tambah User
         </a>
@@ -110,6 +114,34 @@
                         <i class="bi bi-download me-1"></i>Template CSV
                     </a>
                     <button type="submit" class="btn btn-primary-modern"><i class="bi bi-upload me-1"></i>Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Delete Modal -->
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius:20px;border:none">
+            <div class="modal-header" style="border-bottom:1px solid #f1f5f9;padding:24px">
+                <h5 class="modal-title text-danger" style="font-weight:700">Hapus Massal User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ route('admin.users.bulk-delete') }}" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body" style="padding:24px">
+                    <div class="alert alert-warning mb-3" style="border-radius:12px;border:none;background:#fff7ed;color:#9a3412;font-size:13px">
+                        <i class="bi bi-exclamation-triangle me-2"></i><strong>Peringatan!</strong> Semua user yang NIS-nya terdaftar di file CSV akan dihapus secara permanen.
+                    </div>
+                    <p class="text-muted mb-2" style="font-size:13px">Upload file CSV yang berisi daftar <strong>NIS</strong> (Kolom pertama).</p>
+                    <input type="file" name="file" class="form-control form-control-modern" accept=".csv,.txt" required>
+                </div>
+                <div class="modal-footer d-flex justify-content-end" style="border:none;padding:0 24px 24px">
+                    <button type="button" class="btn btn-outline-secondary me-2" style="border-radius:12px;font-weight:600" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger" style="border-radius:12px;font-weight:600;padding:10px 24px" onclick="return confirm('Apakah Anda yakin ingin menghapus massal user tersebut?')">
+                        <i class="bi bi-trash me-1"></i>Hapus Massal
+                    </button>
                 </div>
             </form>
         </div>
