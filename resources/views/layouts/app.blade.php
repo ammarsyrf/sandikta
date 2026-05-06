@@ -380,6 +380,7 @@
 
         /* BADGE */
         .badge-modern {
+            display: inline-block;
             padding: 5px 12px;
             border-radius: 8px;
             font-size: 11px;

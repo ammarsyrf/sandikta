@@ -3,6 +3,12 @@
 @section('page-title', 'Detail eBook')
 
 @section('content')
+<div class="mb-4">
+    <a href="{{ route('ebooks.index') }}" class="btn btn-outline-modern d-inline-flex align-items-center gap-2" style="font-size: 14px; padding: 10px 20px;">
+        <i class="bi bi-arrow-left"></i> Kembali ke Koleksi
+    </a>
+</div>
+
 <div class="row g-4">
     <div class="col-lg-4">
         <div class="card-modern animate-fadeInUp delay-1" style="overflow:hidden">
@@ -30,7 +36,7 @@
     <div class="col-lg-8">
         <div class="card-modern animate-fadeInUp delay-2">
             <div class="card-body" style="padding:32px">
-                <span class="badge-modern badge-info mb-3">{{ $ebook->category?->name }}</span>
+                <span class="badge-modern badge-info d-inline-block mb-3">{{ $ebook->category?->name }}</span>
                 <h3 style="font-weight:800;margin-bottom:8px">{{ $ebook->title }}</h3>
                 <p style="color:#64748b;font-size:15px;margin-bottom:24px">oleh <strong>{{ $ebook->author }}</strong></p>
                 
