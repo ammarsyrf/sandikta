@@ -119,42 +119,92 @@ class UserController extends Controller
     {
         $request->validate(['file' => 'required|file|mimes:csv,txt|max:5120']);
         $file = $request->file('file');
+        
+        // Deteksi delimiter otomatis (koma vs titik koma)
         $handle = fopen($file->getPathname(), 'r');
-        $header = fgetcsv($handle);
-        $imported = 0; $errors = [];
-
-        while (($row = fgetcsv($handle)) !== false) {
-            if (count($row) < 4) continue;
-            try {
-                $nis = trim($row[0]); $name = trim($row[1]);
-                $kelas = trim($row[2]); $tgl = trim($row[3]);
-                
-                if (User::where('nis', $nis)->exists()) { 
-                    $errors[] = "NIS {$nis} sudah ada"; 
-                } else {
-                    // Clean up separators. Replacing / with - allows PHP's strtotime to correctly parse DD-MM-YYYY
-                    $cleanTgl = str_replace('/', '-', $tgl);
-                    $timestamp = strtotime($cleanTgl);
-                    
-                    if (!$timestamp) {
-                        $errors[] = "Format tanggal lahir tidak valid untuk NIS {$nis} ({$tgl})";
-                    } else {
-                        $password = date('dmY', $timestamp);
-                        User::create([
-                            'nis' => $nis, 'name' => $name, 'kelas' => $kelas,
-                            'tanggal_lahir' => date('Y-m-d', $timestamp),
-                            'password' => $password, 'role' => 'user',
-                            'must_change_password' => true, 'is_active' => true,
-                        ]);
-                        $imported++;
-                    }
-                }
-            } catch (\Exception $e) { $errors[] = "Baris error: {$row[0]}"; }
+        $firstLine = fgets($handle);
+        rewind($handle);
+        $delimiter = (strpos($firstLine, ';') !== false) ? ';' : ',';
+        
+        // Lewati BOM (Byte Order Mark) jika ada
+        if (strpos($firstLine, "\xEF\xBB\xBF") === 0) {
+            fseek($handle, 3);
         }
+
+        $header = fgetcsv($handle, 0, $delimiter);
+        $imported = 0; 
+        $errors = []; 
+        $lineNumber = 1;
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+                $lineNumber++;
+                
+                // Lewati baris kosong
+                if (empty(array_filter($row))) continue; 
+                
+                if (count($row) < 4) {
+                    $errors[] = "Baris {$lineNumber}: Kolom tidak lengkap (Minimal 4 kolom)";
+                    continue;
+                }
+
+                $nis = trim($row[0]);
+                $name = trim($row[1]);
+                $kelas = trim($row[2]);
+                $tgl = trim($row[3]);
+
+                if (empty($nis) || empty($name)) {
+                    $errors[] = "Baris {$lineNumber}: NIS atau Nama tidak boleh kosong";
+                    continue;
+                }
+
+                if (User::where('nis', $nis)->exists()) { 
+                    $errors[] = "Baris {$lineNumber}: NIS {$nis} sudah terdaftar"; 
+                    continue;
+                }
+
+                // Normalisasi format tanggal (Ubah / ke - agar strtotime mengenali sebagai DD-MM-YYYY)
+                $cleanTgl = str_replace('/', '-', $tgl);
+                $timestamp = strtotime($cleanTgl);
+                
+                if (!$timestamp) {
+                    $errors[] = "Baris {$lineNumber}: Format tanggal lahir tidak valid ({$tgl})";
+                    continue;
+                }
+
+                $password = date('dmY', $timestamp); // Default password dari tgl lahir
+                
+                User::create([
+                    'nis' => $nis,
+                    'name' => $name,
+                    'kelas' => $kelas,
+                    'tanggal_lahir' => date('Y-m-d', $timestamp),
+                    'password' => $password, // Akan di-hash otomatis oleh model User (hashed cast)
+                    'role' => 'user',
+                    'must_change_password' => true,
+                    'is_active' => true,
+                ]);
+                $imported++;
+            }
+            
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            fclose($handle);
+            return back()->with('error', "Gagal mengimpor data: " . $e->getMessage());
+        }
+        
         fclose($handle);
+
         ActivityLog::log('import_users', "Import {$imported} users dari CSV", null, null);
-        $msg = "Berhasil import {$imported} user.";
-        if (!empty($errors)) $msg .= ' Errors: ' . implode(', ', array_slice($errors, 0, 5));
+        
+        $msg = "Berhasil mengimpor {$imported} user.";
+        if (!empty($errors)) {
+            $msg .= ' Beberapa baris gagal: ' . implode(', ', array_slice($errors, 0, 3));
+            if (count($errors) > 3) $msg .= ' ...dan ' . (count($errors) - 3) . ' baris lainnya.';
+        }
+        
         return back()->with('success', $msg);
     }
 }
